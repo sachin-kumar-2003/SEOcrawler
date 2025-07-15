@@ -8,27 +8,41 @@ async def checkUrlStatusCode(client,url: str) -> int:
     try:
         response= await client.get(url,timeout=10)
         return response.status_code
-    except client.RequestError:
+    except httpx.RequestError:
         return None
 
 
 async def crawlWebsite(url:str)-> str:
     
     visitedUrls: Set[str]=set()
-    brokenLinks: List[str]=[]
-    correctLinks: List[str]=[]
+    brokenLinks: Set[str]=set()
+    correctLinks: Set[str]=set()
         
     try:
         async with httpx.AsyncClient(follow_redirects=True) as client:
+            
             async def dfs(url: str):
                 if url in visitedUrls:
                     return 
+                
                 visitedUrls.add(url)
                 currStatusCode= await checkUrlStatusCode(client,url)
+                
                 if currStatusCode is None or currStatusCode == 400:
-                    brokenLinks.append(url)
+                    brokenLinks.add(url)
                 if currStatusCode == 200:
-                    correctLinks.append(url)  
+                    correctLinks.add(url)  
+                
+                try:
+                    rowHTML= await client.get(url,timeout=10)
+                    allLinks = BeautifulSoup(rowHTML.text,"html.parser")
+                    for tag in allLinks.find_all("a"):
+                        currUrl=tag.get("href")
+                        if not currUrl:continue
+                        if currUrl not in visitedUrls:
+                            await dfs(currUrl)                
+                except Exception as e:
+                    print(f"exception = {e}")
             await dfs(url)                  
     except:
         return "Error occurred while crawling the website"
