@@ -5,7 +5,7 @@ from urllib.parse import urljoin, urlparse
 from .schemas import UrlForCrawl
 
 
-MAX_CONCURRENCY = 15 
+MAX_CONCURRENCY = 10
 MAX_DEPTH = 2       
 
 async def checkUrlStatusCode(client: httpx.AsyncClient, url: str) -> int:
