@@ -1,8 +1,8 @@
-# from pydantic import BaseModel, Field,AnyHttpUrl
-# from typing import  List,Annotated
+from pydantic import BaseModel, Field,AnyHttpUrl
+from typing import  List,Annotated
 
-# class UrlForCrawl(BaseModel):
-#     url:Annotated[AnyHttpUrl,Field(...,description="Enter the url for finding broken links")]
+class UrlForCrawl(BaseModel):
+    url:Annotated[str,Field(...,description="Enter the url for finding broken links")]
 
 # class UrlLink(BaseModel):
 #     url:Annotated[AnyHttpUrl,Field(description="Broken link found in the website")]

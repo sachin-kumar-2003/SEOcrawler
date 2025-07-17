@@ -1,15 +1,21 @@
 from fastapi import FastAPI
-from .crawler import crawlWebsite
-from urllib.parse import urlparse,urljoin
-
+from pydantic import BaseModel
+import json
+from .crawler import bfs
+from .schemas import UrlForCrawl
 app = FastAPI()
+
 
 @app.get("/")
 def hello():
-    return {"message": "Hello from backend"}
+    return {"message": "hello from backend"}
 
-@app.get("/crawl")
-async def searching():
-    website="https://www.geeksforgeeks.org/"
-    return await crawlWebsite(website)
-    
+@app.post("/crawl")
+async def searching(request: UrlForCrawl):
+    result = await bfs(request.url)
+    with open("responses.json", "w") as f:
+        json.dump(result, f,indent=4)
+    return {
+        "message": "searching completed...",
+        "result": result
+    }
