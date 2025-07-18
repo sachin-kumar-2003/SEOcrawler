@@ -1,7 +1,7 @@
 {
-    "Total visited links": 1,
-    "broken links": [
+    "total_visited": 1,
+    "broken_links": [
         "https://www.freepik.com/"
     ],
-    "correct links": []
+    "correct_links": []
 }

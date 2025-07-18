@@ -73,6 +73,7 @@ async def worker(queue, visited, broken, correct, client, domainName, protocol):
         queue.task_done()
 
 async def bfs(url: str):
+    print("enter")
     parsedUrl = urlparse(url)
     domainName = parsedUrl.netloc
     protocol = parsedUrl.scheme
@@ -102,9 +103,9 @@ async def bfs(url: str):
     print("total broken link",broken)
 
     return {
-        "Total visited links": len(visited),
-        "broken links": list(broken),
-        "correct links": list(correct),
+        "total_visited": len(visited),
+        "broken_links": list(broken),
+        "correct_links": list(correct),
     }
 
 
