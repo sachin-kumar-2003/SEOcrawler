@@ -6,7 +6,7 @@ from .schemas import UrlForCrawl
 import json
 
 
-MAX_CONCURRENCY = 20
+MAX_CONCURRENCY = 10
 MAX_DEPTH = 2       
 
 async def checkUrlStatusCode(client: httpx.AsyncClient, url: str) -> int:
