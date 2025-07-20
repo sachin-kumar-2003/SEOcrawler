@@ -3,9 +3,10 @@ import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from .schemas import UrlForCrawl
+import json
 
 
-MAX_CONCURRENCY = 10
+MAX_CONCURRENCY = 20
 MAX_DEPTH = 2       
 
 async def checkUrlStatusCode(client: httpx.AsyncClient, url: str) -> int:
@@ -16,7 +17,7 @@ async def checkUrlStatusCode(client: httpx.AsyncClient, url: str) -> int:
         return None
 
 
-async def worker(queue, visited, broken, correct, client, domainName, protocol):
+async def worker(queue, visited, broken, correct, client, domainName, protocol, manager):
     while True:
         try:
             url, depth = await queue.get()
@@ -32,10 +33,22 @@ async def worker(queue, visited, broken, correct, client, domainName, protocol):
         statusCode = await checkUrlStatusCode(client, url)
         if statusCode is None or statusCode >= 400:
             broken.add(url)
+            # Send broken link update to frontend
+            await manager.broadcast(json.dumps({
+                "type": "broken_link",
+                "url": url,
+                "total_visited": len(visited)
+            }))
             queue.task_done()
             continue
 
         correct.add(url)
+        # Send working link update to frontend
+        await manager.broadcast(json.dumps({
+            "type": "working_link", 
+            "url": url,
+            "total_visited": len(visited)
+        }))
 
         if depth >= MAX_DEPTH:
             queue.task_done()
@@ -64,15 +77,27 @@ async def worker(queue, visited, broken, correct, client, domainName, protocol):
                     ext_status = await checkUrlStatusCode(client, fullUrl)
                     if ext_status is None or ext_status >= 400:
                         broken.add(fullUrl)
+                        # Send external broken link update
+                        await manager.broadcast(json.dumps({
+                            "type": "broken_link",
+                            "url": fullUrl,
+                            "total_visited": len(visited)
+                        }))
                     else:
                         correct.add(fullUrl)
+                        # Send external working link update
+                        await manager.broadcast(json.dumps({
+                            "type": "working_link",
+                            "url": fullUrl,
+                            "total_visited": len(visited)
+                        }))
 
         except Exception as e:
             print(f"Exception while crawling {url}: {e}")
 
         queue.task_done()
 
-async def bfs(url: str):
+async def bfs(url: str, manager=None):
     print("enter")
     parsedUrl = urlparse(url)
     domainName = parsedUrl.netloc
@@ -85,9 +110,16 @@ async def bfs(url: str):
     queue = asyncio.Queue()
     await queue.put((url, 0))
 
+    # Send crawl started message
+    if manager:
+        await manager.broadcast(json.dumps({
+            "type": "crawl_started",
+            "message": "Crawling started..."
+        }))
+
     async with httpx.AsyncClient(follow_redirects=True) as client:
         workers = [
-            asyncio.create_task(worker(queue, visited, broken, correct, client, domainName, protocol))
+            asyncio.create_task(worker(queue, visited, broken, correct, client, domainName, protocol, manager))
             for _ in range(MAX_CONCURRENCY)
         ]
         
@@ -96,6 +128,16 @@ async def bfs(url: str):
 
         for w in workers:
             w.cancel()
+
+    # Send crawl completed message
+    if manager:
+        await manager.broadcast(json.dumps({
+            "type": "crawl_completed",
+            "message": "Crawling completed!",
+            "total_visited": len(visited),
+            "total_broken": len(broken),
+            "total_working": len(correct)
+        }))
 
     print(f"Total links checked= {len(visited)}")
     print(f"Correct links= {len(correct)}")
@@ -107,5 +149,3 @@ async def bfs(url: str):
         "broken_links": list(broken),
         "correct_links": list(correct),
     }
-
-
