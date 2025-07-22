@@ -2,8 +2,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import json
 import aiofiles
-from .crawler import bfs
-from .schemas import UrlForCrawl
+from crawler import bfs
+from schemas import UrlForCrawl
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import asyncio
