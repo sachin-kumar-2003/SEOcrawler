@@ -30,6 +30,7 @@ function App() {
     }
     wsRef.current = new WebSocket(`wss://${domain}/ws`);
     
+    
     wsRef.current.onopen = () => {
       console.log('WebSocket connected');
     };

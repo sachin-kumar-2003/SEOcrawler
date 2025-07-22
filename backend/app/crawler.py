@@ -10,9 +10,6 @@ MAX_DEPTH = 2
 
 
 def normalizeUrl(url: str) -> str:
-    """
-    Normalize URL: remove fragments, trailing slashes (except root), etc.
-    """
     parsed = urlparse(url)
     parsed = parsed._replace(fragment='')
     path = parsed.path
@@ -47,7 +44,7 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
 
         status_code = await checkUrlStatusCode(client, url)
 
-        if status_code is None or status_code >= 400:
+        if  status_code >= 400:
             broken.add(url)
             await manager.broadcast(json.dumps({
                 "type": "broken_link",
@@ -95,7 +92,7 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
                     visited.add(full_url)
 
                     ext_status = await checkUrlStatusCode(client, full_url)
-                    if ext_status is None or ext_status >= 400:
+                    if  ext_status >= 400:
                         broken.add(full_url)
                         await manager.broadcast(json.dumps({
                             "type": "broken_link",
