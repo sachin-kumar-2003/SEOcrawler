@@ -4,6 +4,12 @@ import { FiSearch, FiX, FiGlobe, FiActivity } from 'react-icons/fi';
 import { AiOutlineLink, AiOutlineCloseCircle } from 'react-icons/ai';
 import { HiDownload, HiLightningBolt } from 'react-icons/hi';
 
+
+const backendUrl = import.meta.env.VITE_APP_BACKEND_URL;
+
+const domain = import.meta.env.VITE_APP_WS_URL;
+
+
 function App() {
   const [url, setUrl] = useState('');
   const [result, setResult] = useState(null);
@@ -22,8 +28,7 @@ function App() {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.close();
     }
-
-    wsRef.current = new WebSocket('ws://127.0.0.1:8000/ws');
+    wsRef.current = new WebSocket(`wss://${domain}/ws`);
     
     wsRef.current.onopen = () => {
       console.log('WebSocket connected');
@@ -152,7 +157,7 @@ function App() {
     });
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/crawl', { url }, {
+      const response = await axios.post(`https://${backendUrl}/crawl`, { url }, {
         signal: controller.signal
       });
       setResult(response.data);
