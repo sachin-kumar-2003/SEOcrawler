@@ -45,7 +45,9 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
         status_code = await checkUrlStatusCode(client, url)
 
         if  status_code >= 400:
-            broken.add(url)
+            pUrl = urlparse(url)
+            if pUrl.netloc == domain_name:
+                broken.add(url)
             await manager.broadcast(json.dumps({
                 "type": "broken_link",
                 "url": url,
@@ -93,7 +95,9 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
 
                     ext_status = await checkUrlStatusCode(client, full_url)
                     if  ext_status >= 400:
-                        broken.add(full_url)
+                        ePurl = urlparse(full_url)
+                        if ePurl.netloc == domain_name:
+                            broken.add(full_url)
                         await manager.broadcast(json.dumps({
                             "type": "broken_link",
                             "url": full_url,
