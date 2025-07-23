@@ -6,7 +6,7 @@ import json
 
 
 MAX_CONCURRENCY = 10
-MAX_DEPTH = 2
+MAX_DEPTH = float('inf')
 
 
 def normalizeUrl(url: str) -> str:
