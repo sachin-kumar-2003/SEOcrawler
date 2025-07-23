@@ -275,10 +275,10 @@ function App() {
               </div>
               {realTimeData.totalVisited > 0 && (
                 <div className="flex items-center justify-center space-x-8 text-sm">
-                  <div className="flex items-center">
+                  {/* <div className="flex items-center">
                     <div className="w-3 h-3 bg-purple-400 rounded-full mr-2 animate-pulse"></div>
                     <span className="text-gray-300">Pages Visited: <span className="text-white font-semibold">{realTimeData.totalVisited}</span></span>
-                  </div>
+                  </div> */}
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></div>
                     <span className="text-gray-300">Working: <span className="text-green-400 font-semibold">{currentWorkingLinks.length}</span></span>
@@ -301,7 +301,7 @@ function App() {
               {/* Summary Stats */}
               <div className="mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl p-6 border border-purple-500/30">
+                  {/* <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl p-6 border border-purple-500/30">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-purple-300 text-sm font-medium">Pages Scanned</p>
@@ -309,7 +309,7 @@ function App() {
                       </div>
                       <FiGlobe className="text-4xl text-purple-400" />
                     </div>
-                  </div>
+                  </div> */}
                   
                   <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl p-6 border border-green-500/30">
                     <div className="flex items-center justify-between">
