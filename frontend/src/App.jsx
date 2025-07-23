@@ -267,12 +267,12 @@ function App() {
         {loading && (
           <div className="text-center mb-8">
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl px-8 py-6 border border-white/20 shadow-2xl">
-              <div className="flex items-center justify-center mb-4">
+              {/* <div className="flex items-center justify-center mb-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-400 border-t-transparent mr-3"></div>
                 <p className="text-xl font-semibold text-purple-300">
                   {realTimeData.crawlStatus || 'Scanning your website...'}
                 </p>
-              </div>
+              </div> */}
               {realTimeData.totalVisited > 0 && (
                 <div className="flex items-center justify-center space-x-8 text-sm">
                   {/* <div className="flex items-center">
