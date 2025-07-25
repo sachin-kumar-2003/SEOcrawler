@@ -1,5 +1,3 @@
-# ✅ crawler.py (UPDATED)
-
 import asyncio
 import httpx
 from bs4 import BeautifulSoup
