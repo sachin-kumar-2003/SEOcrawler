@@ -161,8 +161,8 @@ const stopCrawling = () => {
     });
 
     try {
-      // const response = await axios.post(`https://${backendUrl}/crawl`, { url }, {
-      const response = await axios.post(`http://${backendUrl}/crawl`, { url }, {
+      const response = await axios.post(`https://${backendUrl}/crawl`, { url }, {
+      // const response = await axios.post(`http://${backendUrl}/crawl`, { url }, {
         signal: controller.signal
       });
       setResult(response.data);
