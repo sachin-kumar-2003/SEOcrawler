@@ -1,13 +1,13 @@
+# ✅ crawler.py (UPDATED)
+
 import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, urlunparse
 import json
 
-
 MAX_CONCURRENCY = 10
-MAX_DEPTH = float('inf')
-
+MAX_DEPTH = 2
 
 def normalizeUrl(url: str) -> str:
     parsed = urlparse(url)
@@ -18,7 +18,6 @@ def normalizeUrl(url: str) -> str:
     parsed = parsed._replace(path=path)
     return urlunparse(parsed)
 
-
 async def checkUrlStatusCode(client: httpx.AsyncClient, url: str) -> int:
     try:
         response = await client.get(url, timeout=10)
@@ -26,25 +25,25 @@ async def checkUrlStatusCode(client: httpx.AsyncClient, url: str) -> int:
     except httpx.RequestError:
         return None
 
-
-async def worker(queue, visited, broken, correct, client, domain_name, manager):
-    while True:
+async def worker(queue, visited, broken, correct, client, domain_name, manager, stop_event):
+    while not stop_event.is_set():
         try:
-            url, depth = await queue.get()
+            url, depth = await asyncio.wait_for(queue.get(), timeout=1.0)
+        except asyncio.TimeoutError:
+            continue
         except asyncio.CancelledError:
             break
 
         url = normalizeUrl(url)
-
         if url in visited:
             queue.task_done()
             continue
 
         visited.add(url)
-
+        print("url ->", url)
         status_code = await checkUrlStatusCode(client, url)
 
-        if  status_code >= 400:
+        if status_code is None or status_code >= 400:
             pUrl = urlparse(url)
             if pUrl.netloc == domain_name:
                 broken.add(url)
@@ -71,8 +70,6 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
             response = await client.get(url, timeout=10)
             soup = BeautifulSoup(response.text, "html.parser")
 
-            external_links = []
-
             for tag in soup.find_all("a"):
                 href = tag.get("href")
                 if not href:
@@ -92,9 +89,9 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
                         continue
 
                     visited.add(full_url)
-
                     ext_status = await checkUrlStatusCode(client, full_url)
-                    if  ext_status >= 400:
+
+                    if ext_status is None or ext_status >= 400:
                         ePurl = urlparse(full_url)
                         if ePurl.netloc == domain_name:
                             broken.add(full_url)
@@ -116,8 +113,7 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager):
 
         queue.task_done()
 
-
-async def bfs(url: str, manager=None):
+async def bfs(url: str, manager=None, stop_event=None):
     print("Crawl started")
     parsed_url = urlparse(url)
     domain_name = parsed_url.netloc
@@ -137,11 +133,12 @@ async def bfs(url: str, manager=None):
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
         workers = [
-            asyncio.create_task(worker(queue, visited, broken, correct, client, domain_name, manager))
+            asyncio.create_task(worker(queue, visited, broken, correct, client, domain_name, manager, stop_event))
             for _ in range(MAX_CONCURRENCY)
         ]
 
         await queue.join()
+        stop_event.set()  # Mark done
 
         for w in workers:
             w.cancel()

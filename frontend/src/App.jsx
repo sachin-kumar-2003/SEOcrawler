@@ -6,8 +6,10 @@ import { HiDownload, HiLightningBolt } from 'react-icons/hi';
 
 
 const backendUrl = import.meta.env.VITE_APP_BACKEND_URL;
+// const backendUrl = '127.0.0.1:8000'; 
 
 const domain = import.meta.env.VITE_APP_WS_URL;
+// const domain = '127.0.0.1:8000' 
 
 
 function App() {
@@ -29,6 +31,8 @@ function App() {
       wsRef.current.close();
     }
     wsRef.current = new WebSocket(`wss://${domain}/ws`);
+    // wsRef.current = new WebSocket(`ws://${domain}/ws`);
+
     
     
     wsRef.current.onopen = () => {
@@ -111,25 +115,24 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const stopCrawling = () => {
-    // Cancel the ongoing request
-    if (crawlController) {
-      crawlController.abort();
-      setCrawlController(null);
-    }
-    
-    // Close WebSocket connection
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.close();
-    }
-    
-    // Reset states
-    setLoading(false);
-    setRealTimeData(prev => ({
-      ...prev,
-      crawlStatus: 'Crawling stopped by user'
-    }));
-  };
+const stopCrawling = () => {
+  if (crawlController) {
+    crawlController.abort();
+    setCrawlController(null);
+  }
+
+  if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    wsRef.current.send(JSON.stringify({ type: "stop" }));
+    wsRef.current.close();
+  }
+
+  setLoading(false);
+  setRealTimeData(prev => ({
+    ...prev,
+    crawlStatus: "Crawling stopped by user"
+  }));
+};
+
 
   const handleCrawl = async () => {
     if (!url) return;
@@ -158,7 +161,8 @@ function App() {
     });
 
     try {
-      const response = await axios.post(`https://${backendUrl}/crawl`, { url }, {
+      // const response = await axios.post(`https://${backendUrl}/crawl`, { url }, {
+      const response = await axios.post(`http://${backendUrl}/crawl`, { url }, {
         signal: controller.signal
       });
       setResult(response.data);
@@ -267,12 +271,12 @@ function App() {
         {loading && (
           <div className="text-center mb-8">
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl px-8 py-6 border border-white/20 shadow-2xl">
-              {/* <div className="flex items-center justify-center mb-4">
+               <div className="flex items-center justify-center mb-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-400 border-t-transparent mr-3"></div>
                 <p className="text-xl font-semibold text-purple-300">
                   {realTimeData.crawlStatus || 'Scanning your website...'}
                 </p>
-              </div> */}
+              </div> 
               {realTimeData.totalVisited > 0 && (
                 <div className="flex items-center justify-center space-x-8 text-sm">
                   {/* <div className="flex items-center">
