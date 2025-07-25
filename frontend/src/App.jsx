@@ -1,22 +1,25 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { FiSearch, FiX, FiGlobe, FiActivity } from 'react-icons/fi';
 import { AiOutlineLink, AiOutlineCloseCircle } from 'react-icons/ai';
 import { HiDownload, HiLightningBolt } from 'react-icons/hi';
 
-
 const backendUrl = import.meta.env.VITE_APP_BACKEND_URL;
-// const backendUrl = '127.0.0.1:8000'; 
-
 const domain = import.meta.env.VITE_APP_WS_URL;
-// const domain = '127.0.0.1:8000' 
+// const backendUrl = '127.0.0.1:8000'; // Replace with your backend URL
+// const domain = backendUrl; // Replace with your WebSocket URL
 
+// Generate unique client ID
+const generateClientId = () => {
+  return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
 
 function App() {
   const [url, setUrl] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [crawlController, setCrawlController] = useState(null);
+  const [clientId, setClientId] = useState(() => generateClientId());
   const [realTimeData, setRealTimeData] = useState({
     brokenLinks: [],
     workingLinks: [],
@@ -24,86 +27,183 @@ function App() {
     crawlStatus: ''
   });
   const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const pingIntervalRef = useRef(null);
 
-  const connectWebSocket = () => {
-    // Close any existing connection first
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.close();
-    }
-    wsRef.current = new WebSocket(`wss://${domain}/ws`);
-    // wsRef.current = new WebSocket(`ws://${domain}/ws`);
-
-    
-    
-    wsRef.current.onopen = () => {
-      console.log('WebSocket connected');
-    };
-
-    wsRef.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      switch (data.type) {
-        case 'crawl_started':
-          setRealTimeData(prev => ({
-            ...prev,
-            crawlStatus: data.message,
-            brokenLinks: [],
-            workingLinks: [],
-            totalVisited: 0
-          }));
-          break;
-          
-        case 'broken_link':
-          setRealTimeData(prev => ({
-            ...prev,
-            brokenLinks: [...prev.brokenLinks, data.url],
-            totalVisited: data.total_visited
-          }));
-          break;
-          
-        case 'working_link':
-          setRealTimeData(prev => ({
-            ...prev,
-            workingLinks: [...prev.workingLinks, data.url],
-            totalVisited: data.total_visited
-          }));
-          break;
-          
-        case 'crawl_completed':
-          setRealTimeData(prev => ({
-            ...prev,
-            crawlStatus: data.message
-          }));
-          // Close WebSocket after crawl completes
-          setTimeout(() => {
-            if (wsRef.current) {
-              wsRef.current.close();
-            }
-          }, 1000);
-          break;
-          
-        default:
-          console.log('Unknown message type:', data.type);
-      }
-    };
-
-    wsRef.current.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
-
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-  };
-
+  // Generate new client ID for each session
   useEffect(() => {
-    return () => {
-      // Cleanup on component unmount
-      if (wsRef.current) {
+    const newClientId = generateClientId();
+    setClientId(newClientId);
+    console.log('Generated client ID:', newClientId);
+  }, []);
+
+  const cleanupWebSocket = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+
+    if (wsRef.current) {
+      wsRef.current.onopen = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      
+      if (wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
       }
-    };
+      wsRef.current = null;
+    }
   }, []);
+
+  const connectWebSocket = useCallback(() => {
+    // Clean up existing connection
+    cleanupWebSocket();
+
+    try {
+      console.log('Connecting WebSocket for client:', clientId);
+      // wsRef.current = new WebSocket(`ws://${domain}/ws/${clientId}`);
+      wsRef.current = new WebSocket(`wss://${domain}/ws/${clientId}`);
+      
+      wsRef.current.onopen = () => {
+        console.log('WebSocket connected for client:', clientId);
+        
+        // Set up ping interval to keep connection alive
+        pingIntervalRef.current = setInterval(() => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 30000); // Ping every 30 seconds
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data.type);
+          
+          switch (data.type) {
+            case 'crawl_started':
+              setRealTimeData(prev => ({
+                ...prev,
+                crawlStatus: data.message,
+                brokenLinks: [],
+                workingLinks: [],
+                totalVisited: 0
+              }));
+              break;
+              
+            case 'broken_link':
+              setRealTimeData(prev => ({
+                ...prev,
+                brokenLinks: [...prev.brokenLinks, data.url],
+                totalVisited: data.total_visited
+              }));
+              break;
+              
+            case 'working_link':
+              setRealTimeData(prev => ({
+                ...prev,
+                workingLinks: [...prev.workingLinks, data.url],
+                totalVisited: data.total_visited
+              }));
+              break;
+              
+            case 'crawl_completed':
+              setRealTimeData(prev => ({
+                ...prev,
+                crawlStatus: data.message
+              }));
+              setLoading(false);
+              break;
+
+            case 'crawl_stopped':
+              setRealTimeData(prev => ({
+                ...prev,
+                crawlStatus: data.message
+              }));
+              setLoading(false);
+              break;
+
+            case 'crawl_error':
+              setRealTimeData(prev => ({
+                ...prev,
+                crawlStatus: data.message
+              }));
+              setLoading(false);
+              break;
+
+            case 'pong':
+              // Keep-alive response
+              break;
+              
+            default:
+              console.log('Unknown message type:', data.type);
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      wsRef.current.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
+        
+        // Clear ping interval
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
+
+        // Only attempt reconnection if it wasn't a normal closure and we're still loading
+        if (event.code !== 1000 && loading) {
+          console.log('Attempting to reconnect...');
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectWebSocket();
+          }, 2000);
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    } catch (error) {
+      console.error('Error creating WebSocket connection:', error);
+    }
+  }, [clientId, loading, cleanupWebSocket]);
+
+  // Handle page unload/refresh
+  useEffect(() => {
+    const handleUnload = () => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "stop" }));
+      }
+      cleanupWebSocket();
+    };
+    
+    const handleBeforeUnload = (e) => {
+      handleUnload();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("unload", handleUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("unload", handleUnload);
+      handleUnload();
+    };
+  }, [cleanupWebSocket]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupWebSocket();
+    };
+  }, [cleanupWebSocket]);
 
   const downloadLinks = (links, filename) => {
     const blob = new Blob([links.join('\n')], { type: 'text/plain' });
@@ -114,60 +214,36 @@ function App() {
     a.click();
     URL.revokeObjectURL(url);
   };
-    useEffect(() => {
-      const handleUnload = () => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: "stop" }));
-          wsRef.current.close();
-        }
-      };
-      window.addEventListener("beforeunload", handleUnload);
-      return () => {
-        window.removeEventListener("beforeunload", handleUnload);
-        if (wsRef.current) {
-          wsRef.current.close();
-        }
-      };
-    }, []);
 
-const stopCrawling = () => {
-  if (crawlController) {
-    crawlController.abort();
-    setCrawlController(null);
-  }
+  const stopCrawling = useCallback(() => {
+    console.log('Stopping crawl for client:', clientId);
+    
+    // Cancel HTTP request
+    if (crawlController) {
+      crawlController.abort();
+      setCrawlController(null);
+    }
 
-  if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-    wsRef.current.send(JSON.stringify({ type: "stop" }));
-    wsRef.current.close();
-  }
+    // Send stop message via WebSocket
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "stop" }));
+    }
 
-  setLoading(false);
-  setRealTimeData(prev => ({
-    ...prev,
-    crawlStatus: "Crawling stopped by user"
-  }));
-};
-
+    setLoading(false);
+    setRealTimeData(prev => ({
+      ...prev,
+      crawlStatus: "Crawling stopped by user"
+    }));
+  }, [crawlController, clientId]);
 
   const handleCrawl = async () => {
     if (!url) return;
     
-    // Close any existing WebSocket and start fresh
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
+    console.log('Starting crawl for URL:', url, 'Client:', clientId);
     
-    // Connect WebSocket for this crawl session
-    connectWebSocket();
-    
+    // Reset state
     setLoading(true);
     setResult(null);
-    
-    // Create AbortController for this request
-    const controller = new AbortController();
-    setCrawlController(controller);
-    
-    // Reset real-time data
     setRealTimeData({
       brokenLinks: [],
       workingLinks: [],
@@ -175,26 +251,49 @@ const stopCrawling = () => {
       crawlStatus: ''
     });
 
+    // Connect WebSocket for this crawl session
+    connectWebSocket();
+    
+    // Create AbortController for this request
+    const controller = new AbortController();
+    setCrawlController(controller);
+
     try {
-      const response = await axios.post(`https://${backendUrl}/crawl`, { url }, {
-      // const response = await axios.post(`http://${backendUrl}/crawl`, { url }, {
-        signal: controller.signal
+      // Wait a bit for WebSocket to connect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // const response = await axios.post(`http://${backendUrl}/crawl`, { 
+      const response = await axios.post(`https://${backendUrl}/crawl`, { 
+        url, 
+        client_id: clientId 
+      }, {
+        signal: controller.signal,
+        timeout: 300000 // 5 minutes timeout
       });
+      
+      console.log('Crawl completed:', response.data);
       setResult(response.data);
     } catch (err) {
       if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
         console.log('Crawl was cancelled by user');
       } else {
-        console.error(err);
-        alert('Something went wrong!');
-      }
-      // Close WebSocket on error
-      if (wsRef.current) {
-        wsRef.current.close();
+        console.error('Crawl error:', err);
+        const errorMessage = err.response?.data?.message || err.message || 'Something went wrong!';
+        alert(errorMessage);
+        
+        setRealTimeData(prev => ({
+          ...prev,
+          crawlStatus: `Error: ${errorMessage}`
+        }));
       }
     } finally {
       setLoading(false);
       setCrawlController(null);
+      
+      // Close WebSocket after a delay
+      setTimeout(() => {
+        cleanupWebSocket();
+      }, 2000);
     }
   };
 
@@ -294,10 +393,6 @@ const stopCrawling = () => {
               </div> 
               {realTimeData.totalVisited > 0 && (
                 <div className="flex items-center justify-center space-x-8 text-sm">
-                  {/* <div className="flex items-center">
-                    <div className="w-3 h-3 bg-purple-400 rounded-full mr-2 animate-pulse"></div>
-                    <span className="text-gray-300">Pages Visited: <span className="text-white font-semibold">{realTimeData.totalVisited}</span></span>
-                  </div> */}
                   <div className="flex items-center">
                     <div className="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></div>
                     <span className="text-gray-300">Working: <span className="text-green-400 font-semibold">{currentWorkingLinks.length}</span></span>
@@ -319,17 +414,7 @@ const stopCrawling = () => {
             <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 shadow-2xl">
               {/* Summary Stats */}
               <div className="mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl p-6 border border-purple-500/30">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-purple-300 text-sm font-medium">Pages Scanned</p>
-                        <p className="text-3xl font-bold text-white mt-1">{currentTotalVisited}</p>
-                      </div>
-                      <FiGlobe className="text-4xl text-purple-400" />
-                    </div>
-                  </div> */}
-                  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl p-6 border border-green-500/30">
                     <div className="flex items-center justify-between">
                       <div>
