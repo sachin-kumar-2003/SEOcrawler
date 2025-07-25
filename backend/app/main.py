@@ -79,7 +79,8 @@ async def searching(url: UrlCrawl):
     if websocket is None:
         return JSONResponse({"message": "No active WebSocket"}, status_code=400)
 
-    stop_event = manager.get_stop_event(websocket)
+    stop_event = asyncio.Event()
+    manager.stop_events[websocket] = stop_event  
     result = await bfs(url.url, manager, stop_event)
 
     async with aiofiles.open("responses.json", "w") as f:
