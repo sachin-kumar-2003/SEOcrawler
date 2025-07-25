@@ -136,7 +136,7 @@ async def bfs(url: str, manager=None, stop_event=None):
         ]
 
         await queue.join()
-        stop_event.set()  # Mark done
+        stop_event.set()
 
         for w in workers:
             w.cancel()

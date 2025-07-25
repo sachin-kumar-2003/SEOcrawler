@@ -2,7 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import json
 import aiofiles
-from crawler import bfs
+from .crawler import bfs
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import asyncio
@@ -56,7 +56,6 @@ def hello():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    stop_event = manager.get_stop_event(websocket)
 
     try:
         while True:
@@ -64,14 +63,17 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 payload = json.loads(data)
                 if payload.get("type") == "stop":
-                    stop_event.set()
+                    stop_event = manager.get_stop_event(websocket)
+                    if stop_event:
+                        stop_event.set()
                     break
             except:
                 continue
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        stop_event = manager.get_stop_event(websocket)
         if stop_event:
             stop_event.set()
+        manager.disconnect(websocket)
 
 @app.post("/crawl")
 async def searching(url: UrlCrawl):
@@ -80,7 +82,8 @@ async def searching(url: UrlCrawl):
         return JSONResponse({"message": "No active WebSocket"}, status_code=400)
 
     stop_event = asyncio.Event()
-    manager.stop_events[websocket] = stop_event  
+    manager.stop_events[websocket] = stop_event  # Always fresh for each crawl
+
     result = await bfs(url.url, manager, stop_event)
 
     async with aiofiles.open("responses.json", "w") as f:

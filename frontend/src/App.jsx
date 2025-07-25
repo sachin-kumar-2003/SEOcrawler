@@ -114,6 +114,21 @@ function App() {
     a.click();
     URL.revokeObjectURL(url);
   };
+    useEffect(() => {
+      const handleUnload = () => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: "stop" }));
+          wsRef.current.close();
+        }
+      };
+      window.addEventListener("beforeunload", handleUnload);
+      return () => {
+        window.removeEventListener("beforeunload", handleUnload);
+        if (wsRef.current) {
+          wsRef.current.close();
+        }
+      };
+    }, []);
 
 const stopCrawling = () => {
   if (crawlController) {
