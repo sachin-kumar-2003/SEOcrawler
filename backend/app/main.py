@@ -118,7 +118,6 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 async def searching(url_data: UrlCrawl):
     client_id = url_data.client_id or str(uuid.uuid4())
     
-    # Check if client has active WebSocket connection
     if client_id not in manager.active_connections:
         return JSONResponse({"message": "No active WebSocket connection found"}, status_code=400)
 

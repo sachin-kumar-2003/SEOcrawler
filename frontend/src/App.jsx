@@ -268,7 +268,7 @@ function App() {
         client_id: clientId 
       }, {
         signal: controller.signal,
-        timeout: 300000 // 5 minutes timeout
+        timeout: 300000*2*6
       });
       
       console.log('Crawl completed:', response.data);
