@@ -57,19 +57,19 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager, 
             if pUrl.netloc == domain_name:
                 broken.add(url)
             
-            message = json.dumps({
-                "type": "broken_link",
-                "url": url,
-                "total_visited": len(visited)
-            })
+                message = json.dumps({
+                    "type": "broken_link",
+                    "url": url,
+                    "total_visited": len(visited)
+                })
             
-            if client_id and manager:
-                await manager.send_to_client(client_id, message)
-            elif manager:
-                await manager.broadcast(message)
+                if client_id and manager:
+                    await manager.send_to_client(client_id, message)
+                elif manager:
+                    await manager.broadcast(message)
             
-            queue.task_done()
-            continue
+                queue.task_done()
+                continue
 
         correct.add(url)
         message = json.dumps({
@@ -125,16 +125,16 @@ async def worker(queue, visited, broken, correct, client, domain_name, manager, 
                         if ePurl.netloc == domain_name:
                             broken.add(full_url)
                         
-                        message = json.dumps({
-                            "type": "broken_link",
-                            "url": full_url,
-                            "total_visited": len(visited)
-                        })
-                        
-                        if client_id and manager:
-                            await manager.send_to_client(client_id, message)
-                        elif manager:
-                            await manager.broadcast(message)
+                            message = json.dumps({
+                                "type": "broken_link",
+                                "url": full_url,
+                                "total_visited": len(visited)
+                            })
+                            
+                            if client_id and manager:
+                                await manager.send_to_client(client_id, message)
+                            elif manager:
+                                await manager.broadcast(message)
                     else:
                         correct.add(full_url)
                         message = json.dumps({
