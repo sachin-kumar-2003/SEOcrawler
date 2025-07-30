@@ -6,10 +6,10 @@ import { HiDownload, HiLightningBolt } from 'react-icons/hi';
 
 const backendUrl = import.meta.env.VITE_APP_BACKEND_URL;
 const domain = import.meta.env.VITE_APP_WS_URL;
-// const backendUrl = '127.0.0.1:8000'; // Replace with your backend URL
-// const domain = backendUrl; // Replace with your WebSocket URL
+// const backendUrl = '127.0.0.1:8000
+// const domain = backendUrl; 
 
-// Generate unique client ID
+
 const generateClientId = () => {
   return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
@@ -78,7 +78,7 @@ function App() {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: "ping" }));
           }
-        }, 30000); // Ping every 30 seconds
+        }, 30000); 
       };
 
       wsRef.current.onmessage = (event) => {
@@ -158,7 +158,7 @@ function App() {
           pingIntervalRef.current = null;
         }
 
-        // Only attempt reconnection if it wasn't a normal closure and we're still loading
+      
         if (event.code !== 1000 && loading) {
           console.log('Attempting to reconnect...');
           reconnectTimeoutRef.current = setTimeout(() => {
