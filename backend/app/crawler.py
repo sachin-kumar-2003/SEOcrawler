@@ -5,7 +5,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 import json
 
 MAX_CONCURRENCY = 10
-MAX_DEPTH = 5
+MAX_DEPTH = 50
 
 def normalizeUrl(url: str) -> str:
     parsed = urlparse(url)
